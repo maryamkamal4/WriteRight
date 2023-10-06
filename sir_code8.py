@@ -1,16 +1,28 @@
-'''
-Calculating similarity using fastdtw 
-+ assigning value 0.0 to unequal characters 
-+ marking different characters 
-+ resolved white space in ahmed & a hold problem
-+ splitting characters to 4 parts
-'''
 import cv2
 import pytesseract
 import PIL.Image
 from skimage.metrics import structural_similarity as ssim
 import numpy as np
-from fastdtw import fastdtw
+
+
+def parts(roi1, roi2):
+    # Convert ROIs to grayscale
+    roi1 = cv2.cvtColor(roi1, cv2.COLOR_BGR2GRAY)
+    roi2 = cv2.cvtColor(roi2, cv2.COLOR_BGR2GRAY)
+    
+    # Resize ROIs to 200x200
+    roi1 = cv2.resize(roi1, (200, 200))
+    roi2 = cv2.resize(roi2, (200, 200))
+
+    # Split the ROIs into 16 equal parts
+    h, w = roi1.shape
+    num_parts = 4  # Split into a 4x4 grid (total 16 parts)
+    part_height = h // num_parts
+    part_width = w // num_parts
+    roi1_parts = [roi1[i * part_height:(i + 1) * part_height, j * part_width:(j + 1) * part_width] for i in range(num_parts) for j in range(num_parts)]
+    roi2_parts = [roi2[i * part_height:(i + 1) * part_height, j * part_width:(j + 1) * part_width] for i in range(num_parts) for j in range(num_parts)]
+
+    return roi1_parts, roi2_parts
 
 
 # Function to calculate similarity between two images using SSIM
@@ -31,10 +43,14 @@ def match(img1, img2):
     part_similarities = []
 
     for part1, part2 in zip(img1_parts, img2_parts):
-        # Perform DTW comparison on each part
-        distance, _ = fastdtw(part1, part2)
-
-        part_similarities.append(distance)
+        # Perform SSIM comparison on each part
+        similarity_value = ssim(part1, part2, gaussian_weights=True, sigma=1.2, use_sample_covariance=False)
+        
+        # Map the similarity value to a grade from 1 to 10
+        similarity_grade = 1 + (9 * (similarity_value - 0.4) / 0.6)
+        similarity_grade = max(1, min(10, similarity_grade))  # Ensure the grade is in the range [1, 10]
+        
+        part_similarities.append(similarity_grade)
 
     # Calculate the overall similarity for the character as the mean of part similarities
     overall_similarity = np.mean(part_similarities)
@@ -69,26 +85,24 @@ def match(img1, img2):
 my_config = r"--psm 6 --oem 3"
 
 # Load the images
-image1 = cv2.imread("./images/maryam2.jpeg")
-image2 = cv2.imread("./images/maryam1.jpg")
+image1 = cv2.imread("./images/BURGER1.jpeg")
+image2 = cv2.imread("./images/burger.jpeg")
 
 height1, width1, _ = image1.shape
 height2, width2, _ = image2.shape
 
 # Perform OCR to get text and bounding box coordinates for individual characters in image1
-text1 = pytesseract.image_to_string(PIL.Image.open("./images/maryam2.jpeg"), config=my_config)
-print("Text1 with space: ", text1)
+text1 = pytesseract.image_to_string(PIL.Image.open("./images/BURGER1.jpeg"), config=my_config)
 
 text1 = text1.replace(" ", "")
-print("Text1 without space: ", text1)
+print("Text1: ", text1)
 
 
 # Perform OCR to get text and bounding box coordinates for individual characters in image2
-text2 = pytesseract.image_to_string(PIL.Image.open("./images/maryam1.jpg"), config=my_config)
-print("Text2 with space: ", text2)
+text2 = pytesseract.image_to_string(PIL.Image.open("./images/burger.jpeg"), config=my_config)
 
 text2 = text2.replace(" ", "")
-print("Text2 without space: ", text2)
+print("Text2: ", text2)
 
 # Get bounding box coordinates for both images
 boxes1 = pytesseract.image_to_boxes(image1, config=my_config)
@@ -123,6 +137,7 @@ for box1, box2, char1, char2 in zip(boxes1.splitlines(), boxes2.splitlines(), te
         # Calculate similarity for each pair of cropped character regions
         similarity_grade = match(region_of_interest1, region_of_interest2)
         similarities.append(similarity_grade)
+        roi1_parts, roi2_parts = parts(region_of_interest1, region_of_interest2)
     else:
         similarity_grade = 0.0  # Set the grade to 0 for non-matching characters
         similarities.append(similarity_grade)
