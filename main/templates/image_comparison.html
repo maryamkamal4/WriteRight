@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Comparison</title>
+</head>
+<body>
+    <h2>Image Comparison</h2>
+
+    <div style="display: flex; justify-content: space-between;">
+        <div>
+            <h3>Image 1</h3>
+            <img src="data:image/png;base64,{{ image1_base64 }}" alt="Image 1">
+        </div>
+
+        <div>
+            <h3>Image 2</h3>
+            <img src="data:image/png;base64,{{ image2_base64 }}" alt="Image 2">
+        </div>
+
+        <div>
+            <h3>Combined Images</h3>
+            <img src="data:image/png;base64,{{ combined_images_base64 }}" alt="Combined Images">
+        </div>
+    </div>
+
+</body>
+</html>
