@@ -110,8 +110,8 @@ def perform_ocr(image_path, config):
 def image_comparison_view(request):
     my_config = r"--psm 6 --oem 3"
 
-    path_image1 = r"C:/Users/hamxa/Desktop/FYP/Trials/images/ahmed2.jpeg"
-    path_image2 = r"C:/Users/hamxa/Desktop/FYP/Trials/images/ahmed3.jpeg"
+    path_image1 = r"C:\Users\hamxa\Desktop\FYP\WriteRight\main\Images\Student writing\ahmed2.jpeg"
+    path_image2 = r"C:\Users\hamxa\Desktop\FYP\WriteRight\main\Images\Template writing\ahmed3.jpeg"
 
     text1, boxes1, image1, height1, width1 = perform_ocr(path_image1, my_config)
     text2, boxes2, image2, height2, width2 = perform_ocr(path_image2, my_config)
