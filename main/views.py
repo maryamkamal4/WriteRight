@@ -1,6 +1,6 @@
 import base64
 from django.shortcuts import render
-from django.http import HttpResponse
+from django.http import HttpResponseBadRequest, JsonResponse
 import cv2
 import pytesseract
 from skimage.metrics import structural_similarity as ssim
@@ -105,8 +105,9 @@ def perform_ocr(image_path, config):
 #     cv2.imshow('End result', combined_images_resized)
 #     cv2.waitKey(0)
 #     cv2.destroyAllWindows()
-    
-    
+
+processed_images = []    
+        
 def image_comparison_view(request):
     my_config = r"--psm 6 --oem 3"
 
@@ -168,6 +169,10 @@ def image_comparison_view(request):
             x2_min, y2_min, x2_max, y2_max = int(box2[1]), int(box2[2]), int(box2[3]), int(box2[4])
             cv2.rectangle(image2, (x2_min, height2 - y2_max), (x2_max, height2 - y2_min), (0, 0, 255), 2)
 
+    # Check if the images were successfully processed
+    if not (image1_resized.any() and image2_resized.any() and combined_images.any()):
+        return HttpResponseBadRequest('Error processing images')
+    
     # display_images(image1, image2, np.hstack(combined_imgs))
     combined_images = np.hstack(combined_imgs)
     image1_resized = cv2.resize(image1, (400, 400))
@@ -182,10 +187,37 @@ def image_comparison_view(request):
     image2_base64 = base64.b64encode(image2_encoded).decode('utf-8')
     combined_images_base64 = base64.b64encode(combined_images_encoded).decode('utf-8')
 
+    # Append base64 encoded images to global lists
+    processed_images.append(image1_base64)
+    processed_images.append(image2_base64)
+    processed_images.append(combined_images_base64)
+
     context = {
         'image1_base64': image1_base64,
         'image2_base64': image2_base64,
         'combined_images_base64': combined_images_base64,
     }
 
-    return render(request, r'C:/Users/hamxa/Desktop/FYP/WriteRight/main/templates/image_comparison.html', context)
+    # return render(request, r'C:/Users/hamxa/Desktop/FYP/WriteRight/main/templates/image_comparison.html', context)
+    return JsonResponse(context, status=200)
+
+# def image1_api(request):
+#     if processed_images:
+#         image1_base64 = processed_images[0]
+#         return JsonResponse({'image1_base64': image1_base64})
+#     else:
+#         return JsonResponse({'error': 'Image not processed'})
+
+# def image2_api(request):
+#     if len(processed_images) > 1:
+#         image2_base64 = processed_images[1]
+#         return JsonResponse({'image2_base64': image2_base64})
+#     else:
+#         return JsonResponse({'error': 'Image not processed'})
+
+# def combined_images_api(request):
+#     if len(processed_images) > 2:
+#         combined_images_base64 = processed_images[2]
+#         return JsonResponse({'combined_images_base64': combined_images_base64})
+#     else:
+#         return JsonResponse({'error': 'Image not processed'})
