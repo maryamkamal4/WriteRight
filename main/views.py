@@ -14,15 +14,20 @@ from .utils.perform_ocr import perform_ocr
 @csrf_exempt
 def image_comparison_view(request):
     
-    image1_file = r"C:\Users\hamxa\Desktop\FYP\WriteRight\main\Images\Student writing\ahmed2.jpeg"
-    
     if request.method == 'POST':
         
         # Receive image2 from the frontend
         image2_file = request.FILES.get('image2')
+        image1_filename = request.POST.get('image1_filename', '')  # Receive image1 filename
         
-        if image2_file is None:
-            return JsonResponse({'error': 'image2 file is required.'}, status=400)
+        if image2_file is None or not image1_filename:
+            return JsonResponse({'error': 'Both image2 file and image1 filename are required.'}, status=400)
+
+        # Construct image1 file path
+        image1_file = os.path.join(r"C:\Users\hamxa\Desktop\FYP\WriteRight\main\Images\Template writing\\", image1_filename + ".jpeg")
+        
+        if not os.path.exists(image1_file):
+            return JsonResponse({'error': 'Image1 file does not exist.'}, status=400)
 
         similarities = [] 
         combined_imgs = []
