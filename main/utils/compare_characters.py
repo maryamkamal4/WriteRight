@@ -1,3 +1,4 @@
+from matplotlib import pyplot as plt
 from .calculate_similarity import calculate_similarity
 from .find_differences import find_differences
 
@@ -18,6 +19,17 @@ def compare_characters(char1, char2, box1, box2, image1, height1, image2, height
 
         combined_img = find_differences(region_of_interest1, region_of_interest2)
         combined_imgs.append(combined_img)
+        
+        # Display region of interest
+        fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+        ax[0].imshow(region_of_interest1, cmap='gray')
+        ax[0].set_title('Region of Interest 1')
+        ax[0].axis('off')
+        ax[1].imshow(region_of_interest2, cmap='gray')
+        ax[1].set_title('Region of Interest 2')
+        ax[1].axis('off')
+        plt.show()
+        
     else:
         similarity_grade = 0.0
         similarities.append(similarity_grade)

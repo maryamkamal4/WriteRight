@@ -9,6 +9,7 @@ from .utils.encode_images import encode_images
 from .utils.add_text_and_boxes import add_text_and_boxes
 from .utils.compare_characters import compare_characters
 from .utils.perform_ocr import perform_ocr
+from PIL import Image
 
 
 @csrf_exempt
@@ -38,6 +39,12 @@ def image_comparison_view(request):
         with tempfile.NamedTemporaryFile(delete=False) as temp2:
             temp2.write(image2_file.read())
             temp2_path = temp2.name
+            
+        print("_______opening___________")    
+        img1 = Image.open(image1_file)
+        img1.show()    
+        img2 = Image.open(temp2_path)
+        img2.show()
         
         # Process the received images
         text1, boxes1, image1, height1, width1 = perform_ocr(image1_file, my_config)
@@ -53,7 +60,7 @@ def image_comparison_view(request):
             print("Character 2: ", char2)
             
             compare_characters(char1, char2, box1, box2, image1, height1, image2, height2, similarities, combined_imgs)
-
+  
         overall_similarity = np.mean(similarities)
 
         image1_resized,image2_resized, combined_images_resized = add_text_and_boxes(image1, image2, overall_similarity, similarities, boxes2, height2, combined_imgs)
