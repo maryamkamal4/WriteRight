@@ -1,5 +1,6 @@
 import base64
 import os
+import re
 import tempfile
 import cv2
 from django.shortcuts import render
@@ -8,6 +9,7 @@ from django.http import JsonResponse
 from matplotlib import pyplot as plt
 from skimage.metrics import structural_similarity as ssim
 import numpy as np
+from .utils.preprocessing import preprocess
 # from .utils.encode_images import encode_images
 # from .utils.add_text_and_boxes import add_text_and_boxes
 # from .utils.compare_characters import compare_characters
@@ -16,7 +18,7 @@ from PIL import Image
 import pytesseract
 
 
-def add_text_and_boxes(image1, image2, overall_similarity, similarities, boxes2, height2, combined_imgs):
+def add_text_and_boxes(image2, overall_similarity, similarities, boxes2, height2):
     font = cv2.FONT_HERSHEY_SIMPLEX
     font_scale = 1.0
     font_color = (0, 255, 0)
@@ -32,34 +34,22 @@ def add_text_and_boxes(image1, image2, overall_similarity, similarities, boxes2,
             x2_min, y2_min, x2_max, y2_max = int(box2[1]), int(box2[2]), int(box2[3]), int(box2[4])
             cv2.rectangle(image2, (x2_min, height2 - y2_max), (x2_max, height2 - y2_min), (0, 0, 255), 2)
     
-    if combined_imgs:
-        combined_images = np.hstack(combined_imgs)
-        combined_images_resized = cv2.resize(combined_images, (600, 200))
-    else:
-        combined_images_resized = None
-        
-    image1_resized = cv2.resize(image1, (400,400))
-    image2_resized = cv2.resize(image2, (400, 400))
-    cv2.imshow('Resized Image 2', image2_resized)
+    cv2.imshow('Resized Image 2', image2)
     cv2.waitKey(0)
     
-    return image1_resized, image2_resized, combined_images_resized
-
-
-def resize_and_gray(image, size=(150, 150)):
-    resized = cv2.resize(image, size)
-    gray = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
-    return gray
+    return image2
 
 
 def calculate_similarity(img1, img2):
-    img1 = resize_and_gray(img1, size=(200, 200))
-    img2 = resize_and_gray(img2, size=(200, 200))
+
+    img1 = cv2.resize(img1, (200,200)) # the resizing is important for ssim to work
+    img2 = cv2.resize(img2, (200,200))
 
     h, w = img1.shape
-    num_parts = 16  # Split into a 16x16 grid
+    num_parts = 4  # Split into a 4x4 grid for a total of 16 parts
     part_height = h // num_parts
     part_width = w // num_parts
+    
     img1_parts = [img1[i * part_height:(i + 1) * part_height, j * part_width:(j + 1) * part_width]
                   for i in range(num_parts) for j in range(num_parts)]
     img2_parts = [img2[i * part_height:(i + 1) * part_height, j * part_width:(j + 1) * part_width]
@@ -68,12 +58,13 @@ def calculate_similarity(img1, img2):
     part_similarities = []
 
     for part1, part2 in zip(img1_parts, img2_parts):
-        similarity_value = ssim(part1, part2, gaussian_weights=True, sigma=1.2, use_sample_covariance=False)
+        similarity_value = ssim(part1, part2, win_size=min(part1.shape[0], part1.shape[1], 7), gaussian_weights=True, sigma=1.2, use_sample_covariance=False)
         similarity_grade = 1 + (9 * (similarity_value - 0.4) / 0.6)
         similarity_grade = max(1, min(10, similarity_grade))
         part_similarities.append(similarity_grade)
 
     overall_similarity = np.mean(part_similarities)
+    print(overall_similarity)
 
     return overall_similarity
 
@@ -89,11 +80,21 @@ def compare_characters(char1, char2, box1, box2, image1, height1, image2, height
         region_of_interest1 = image1[height1 - y1_max:height1 - y1_min, x1_min:x1_max]
         region_of_interest2 = image2[height2 - y2_max:height2 - y2_min, x2_min:x2_max]
 
+        # Display region of interest
+        fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+        ax[0].imshow(region_of_interest1, cmap='gray')
+        ax[0].set_title('Region of Interest 1')
+        ax[0].axis('off')
+        ax[1].imshow(region_of_interest2, cmap='gray')
+        ax[1].set_title('Region of Interest 2')
+        ax[1].axis('off')
+        plt.show()
+
         similarity_grade = calculate_similarity(region_of_interest1, region_of_interest2)
         similarities.append(similarity_grade)
 
-        combined_img = find_differences(region_of_interest1, region_of_interest2)
-        combined_imgs.append(combined_img)
+        # combined_img = find_differences(region_of_interest1, region_of_interest2)
+        # combined_imgs.append(combined_img)
         
         # Display region of interest
         fig, ax = plt.subplots(1, 2, figsize=(10, 5))
@@ -111,90 +112,39 @@ def compare_characters(char1, char2, box1, box2, image1, height1, image2, height
 
     print("Similarity Grade: {:.2f}".format(similarity_grade))
     
-
-def find_differences_in_quadrants(quad1, quad2):
-    (score, diff) = ssim(quad1, quad2, full=True)
-
-    diff = (diff * 255).astype("uint8")
-    _, thresh = cv2.threshold(diff, 100, 255, cv2.THRESH_BINARY_INV)
-
-    contours = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
-    contours = [c for c in contours if 200 < cv2.contourArea(c) < 800]
-
-    marked_quad = cv2.cvtColor(quad1, cv2.COLOR_GRAY2BGR)
-
-    if len(contours):
-        for c in contours:
-            x, y, w, h = cv2.boundingRect(c)
-            cv2.rectangle(marked_quad, (x, y), (x + w, y + h), (0, 0, 255), 4)
-
-    return marked_quad
-
-
-def display_images(image1, image2, combined_images):
-    image1_resized = cv2.resize(image1, (400, 400))
-    image2_resized = cv2.resize(image2, (400, 400))
-    combined_images_resized = cv2.resize(combined_images, (400, 400))
-
-    cv2.imshow("Student writing", image2_resized)
-    cv2.imshow("Teacher writing", image1_resized)
-    cv2.imshow('End result', combined_images_resized)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
     
-    
-def encode_images(image1_resized, image2_resized, combined_images_resized):
+def encode_images(image2):
 
     # Convert images to base64
-    _, image1_encoded = cv2.imencode('.png', image1_resized)
-    _, image2_encoded = cv2.imencode('.png', image2_resized)
+    _, image2_encoded = cv2.imencode('.png', image2)
     
-    image1_base64 = base64.b64encode(image1_encoded).decode('utf-8')
     image2_base64 = base64.b64encode(image2_encoded).decode('utf-8')
 
-    combined_images_base64 = None
-    if combined_images_resized is not None:
-        _, combined_images_encoded = cv2.imencode('.png', combined_images_resized)
-        combined_images_base64 = base64.b64encode(combined_images_encoded).decode('utf-8')
-
-    return image1_base64, image2_base64, combined_images_base64
+    return image2_base64
 
 
-def find_differences(img1, img2):
-    img1 = resize_and_gray(img1)
-    img2 = resize_and_gray(img2)
+def perform_ocr(image, config):
+    # Get image dimensions
+    try:
+        if len(image.shape) == 3:
+            height, width, _ = image.shape
+        elif len(image.shape) == 2:
+            height, width = image.shape
+        else:
+            raise ValueError("Invalid image shape")
 
-    img1 = cv2.GaussianBlur(img1, (5, 5), 0)
-    img2 = cv2.GaussianBlur(img2, (5, 5), 0)
+    except ValueError as e:
+        print("Error: Unable to get image shape:", e)
 
-    # Split the images into 4 quadrants
-    h, w = img1.shape[:2]
-    mid_h, mid_w = h // 2, w // 2
-    quadrants_img1 = [img1[:mid_h, :mid_w], img1[:mid_h, mid_w:], img1[mid_h:, :mid_w], img1[mid_h:, mid_w:]]
-    quadrants_img2 = [img2[:mid_h, :mid_w], img2[:mid_h, mid_w:], img2[mid_h:, :mid_w], img2[mid_h:, mid_w:]]
-
-    marked_quadrants = []
-
-    for quad1, quad2 in zip(quadrants_img1, quadrants_img2):
-        marked_quad = find_differences_in_quadrants(quad1, quad2)
-        marked_quadrants.append(marked_quad)
-
-    # Combine the marked quadrants into a single image
-    combined_image = np.vstack([np.hstack(marked_quadrants[:2]), np.hstack(marked_quadrants[2:])])
-
-    return combined_image
-
-def perform_ocr(image_path, config):
-    image = cv2.imread(image_path)
-    
-    height, width, _ = image.shape
-
-    text = pytesseract.image_to_string(Image.open(image_path), config=config)
+    # Perform OCR on the image
+    text = pytesseract.image_to_string(Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB)), config=config)
     text = text.replace(" ", "")
 
+    # Get bounding boxes of characters
     boxes = pytesseract.image_to_boxes(image, config=config)
 
     return text, boxes, image, height, width
+
 
 @csrf_exempt
 def image_comparison_view(request):
@@ -209,7 +159,7 @@ def image_comparison_view(request):
             return JsonResponse({'error': 'Both image2 file and image1 filename are required.'}, status=400)
 
         # Construct image1 file path
-        image1_file = os.path.join(r"C:\Users\hamxa\Desktop\FYP\WriteRight\main\Images\Template writing\\", image1_filename + ".jpeg")
+        image1_file = os.path.join(r"C:\Users\Lenovo\Desktop\FYP\WriteRight\main\Images\Template writing\\", image1_filename + ".jpeg")
         
         if not os.path.exists(image1_file):
             return JsonResponse({'error': 'Image1 file does not exist.'}, status=400)
@@ -224,34 +174,61 @@ def image_comparison_view(request):
             temp2.write(image2_file.read())
             temp2_path = temp2.name
         
-        # Process the resized images
-        text1, boxes1, image1, height1, width1 = perform_ocr(image1_file, my_config)
-        text2, boxes2, image2, height2, width2 = perform_ocr(temp2_path, my_config)
 
+        # Open and display image1
+        image1 = cv2.imread(image1_file)
+        image1_resized = cv2.resize(image1, (400, 400))
+        cv2.imshow('Image 1', image1_resized)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+        # Open and display image2
+        image2 = cv2.imread(temp2_path)
+        image2_resized = cv2.resize(image2, (400, 400))
+        cv2.imshow('Image 2', image2_resized)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
+        preprocessed_image1 = preprocess(image1_file)
+        preprocessed_image2 = preprocess(temp2_path)
+
+        # Process the resized images
+        text1, boxes1, ocr_image1, height1, width1 = perform_ocr(preprocessed_image1, my_config)
+        text2, boxes2, ocr_image2, height2, width2 = perform_ocr(preprocessed_image2, my_config)
+
+
+        pattern = re.compile(r'[a-zA-Z]')
 
         # Ensure both texts have the same length (use the shorter length)
-        min_len = min(len(text1), len(text2))
-        text1 = text1[:min_len]
-        text2 = text2[:min_len]
+        text1_filtered = ''.join(re.findall(pattern, text1))
+        text2_filtered = ''.join(re.findall(pattern, text2))
+
+        # Remove spaces from the filtered text
+        text1_filtered = text1_filtered.replace(' ', '')
+        text2_filtered = text2_filtered.replace(' ', '')
+
+        min_len = min(len(text1_filtered), len(text2_filtered))
+        text1 = text1_filtered[:min_len]
+        text2 = text2_filtered[:min_len]
+
         print("Text1: ", text1)
-        print("/nText2: ", text2)
+        print("Text2: ", text2)
 
         for box1, box2, char1, char2 in zip(boxes1.splitlines(), boxes2.splitlines(), text1, text2):
-            print("Character 1: ", char1)
-            print("Character 2: ", char2)
+            print("Character 1:", char1)
+            print("Character 2:", char2)
             
-            compare_characters(char1, char2, box1, box2, image1, height1, image2, height2, similarities, combined_imgs)
+            compare_characters(char1, char2, box1, box2, ocr_image1, height1, ocr_image2, height2, similarities, combined_imgs)
   
         overall_similarity = np.mean(similarities)
 
-        image1_resized,image2_resized, combined_images_resized = add_text_and_boxes(image1, image2, overall_similarity, similarities, boxes2, height2, combined_imgs)
+        textual_image2 = add_text_and_boxes(ocr_image2, overall_similarity, similarities, boxes2, height2)
         
-        image1_base64, image2_base64, combined_images_base64 = encode_images(image1_resized, image2_resized, combined_images_resized)
+        image2_base64 = encode_images(textual_image2)
 
         context = {
-            'image1_base64': image1_base64,
             'image2_base64': image2_base64,
-            'combined_images_base64': combined_images_base64,
+            # 'combined_images_base64': combined_images_base64,
             'overall_similarity': overall_similarity,
         }
         
