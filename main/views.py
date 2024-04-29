@@ -233,7 +233,7 @@ def image_comparison_view(request):
         }
         
         print("Similarity Grades: ", similarities)
-        print("Overall Similarity (Grade 1 to 10): {:.2f}".format(overall_similarity))
+        print("Overall Similarity(Grade 1 to 10): {:.2f}".format(overall_similarity))
 
         # Clean up temporary files
         os.unlink(temp2_path)
