@@ -337,7 +337,7 @@ def image_comparison_view(request):
                 # Clean up temporary files
                 os.unlink(temp2_path)
                 
-                return JsonResponse({'success': True, 'message': 'Image displayed successfully.'})
+                return JsonResponse({'success': True, 'message': 'Image displayed successfully.', 'context': context, 'status': 200})
             else:
                 return JsonResponse({'success': False, 'message': 'Failed to retrieve image from Firebase URL.'}, status=400)
         except Exception as e:
