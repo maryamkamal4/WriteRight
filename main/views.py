@@ -5,12 +5,13 @@ import cv2
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 import numpy as np
+import requests
 from .utils.preprocessing import preprocess
 from .utils.encode_images import encode_images
 from .utils.add_text import add_text
 from .utils.compare_characters import compare_characters
 from .utils.perform_ocr import perform_ocr
-import requests
+from .utils.marking2 import marking
 from django.http import JsonResponse
 
 
@@ -321,14 +322,17 @@ def image_comparison_view(request):
         
                 overall_similarity = np.mean(similarities)
 
+                if (overall_similarity != 0) and (not np.isnan(overall_similarity)) and (overall_similarity is not None):
+                    canvas = marking(temp1_path, temp2_path)
+
                 textual_image2 = add_text(ocr_image2, overall_similarity, similarities, boxes2, height2)
                 
-                image2_base64 = encode_images(textual_image2)
+                image2_base64, canvas_base4 = encode_images(textual_image2, canvas)
 
                 context = {
-                    'image2_base64': image2_base64,
-                    # 'combined_images_base64': combined_images_base64,
                     'overall_similarity': overall_similarity,
+                    'canvas': canvas_base4,
+                    'student_image': image2_base64,
                 }
                 
                 print("Similarity Grades: ", similarities)

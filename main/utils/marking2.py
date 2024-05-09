@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-def align_contours(image_path1, image_path2):
+def marking(image_path1, image_path2):
     # Read images
     image1 = cv2.imread(image_path1)
     image2 = cv2.imread(image_path2)
@@ -115,5 +115,9 @@ def align_contours(image_path1, image_path2):
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
+    return canvas
+
 # Example usage:
-align_contours(r'C:\Users\Lenovo\Desktop\FYP\WriteRight\main\Images\Template writing\B.jpeg', r'C:\Users\Lenovo\Desktop\FYP\WriteRight\main\Images\Student writing\B.jpeg')
+# align_contours('images/B.jpeg', 'images/B2.jpeg')
+# Example usage:
+# align_contours(r'C:\Users\Lenovo\Desktop\FYP\WriteRight\main\Images\Template writing\D.jpeg', r'C:\Users\Lenovo\Desktop\FYP\WriteRight\main\Images\Student writing\D1_pencil.jpeg')
