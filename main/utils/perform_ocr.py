@@ -20,7 +20,7 @@ def perform_ocr(image, config):
         # Get bounding boxes of characters
         boxes = pytesseract.image_to_boxes(image, config=config)
 
-        return text, boxes, image, height, width
+        return text, boxes, image, height
     
     except Exception as e:
         print("Error during OCR:", str(e))
