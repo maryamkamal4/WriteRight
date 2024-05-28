@@ -1,10 +1,6 @@
 import cv2
 import numpy as np
 
-
-import cv2
-import numpy as np
-
 def marking(image_path1, image_path2):
     try:
         # Read images
@@ -30,9 +26,6 @@ def marking(image_path1, image_path2):
         edge_pixels2 = np.count_nonzero(edges2)
         edge_density1 = edge_pixels1 / total_pixels1
         edge_density2 = edge_pixels2 / total_pixels2
-
-        print(edge_density1)
-        print(edge_density2)
 
         if edge_density1 > edge_density_threshold:
             kernel1 = np.ones((1, 1), np.uint8)

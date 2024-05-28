@@ -99,6 +99,8 @@ def compare_characters(char1, char2, box1, box2, image1, height1, image2, height
         # If characters are different, adjust the similarity grade
         if char1 != char2:
             similarity_grade /= 2
+            
+        similarity_grade = round(similarity_grade, 2)
 
         print("Similarity Grade: {:.2f}".format(similarity_grade))
         return similarity_grade
