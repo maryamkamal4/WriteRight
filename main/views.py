@@ -1,14 +1,10 @@
 import os
-import re
 import tempfile
-import cv2
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
-import numpy as np
 import requests
 from .utils.preprocessing import preprocess
 from .utils.encode_images import encode_images
-from .utils.add_text import add_text
 from .utils.compare_characters import compare_characters
 from .utils.perform_ocr import perform_ocr
 # from .utils.marking import marking
