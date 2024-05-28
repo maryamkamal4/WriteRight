@@ -23,5 +23,5 @@ def perform_ocr(image, config):
         return text, boxes, image, height
     
     except Exception as e:
-        print("Error during OCR:", str(e))
+        print("Error during Perform OCR:", str(e))
         return "", "", None, 0, 0
